@@ -6,6 +6,7 @@ use Illuminate\Console\Scheduling\Schedule;
 use LaravelZero\Framework\Commands\Command;
 use Aws\S3\S3Client;
 use Aws\Exception\AwsException;
+use Miloske85\php_cli_table\Table as CliTable;
 
 class Build extends Command
 {

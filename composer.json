@@ -18,7 +18,8 @@
     "require": {
         "php": "^7.2",
         "aws/aws-sdk-php": "^3.114",
-        "laravel-zero/framework": "^6.0"
+        "laravel-zero/framework": "^6.0",
+        "miloske85/php-cli-table": "^0.2.1"
     },
     "require-dev": {
         "mockery/mockery": "^1.0",
