@@ -94,7 +94,8 @@ class Build extends Command
         // Set S3 bucket Variables
         $Policy = file_get_contents(__DIR__.'/../../config/PublicBucket.json');
         $Policy = str_replace('{{ bucket }}', $environmentVariables['BUCKET_NAME'], $Policy);
-
+        $bucketGenOutput = array();
+        $push = array($environmentVariables['BUCKET_NAME'], '✓');
         // Define S3 Client
         $s3Client = new S3Client([
             'region' => 'eu-west-1',
@@ -103,18 +104,38 @@ class Build extends Command
                 'key'    => $environmentVariables['AWS_ID'],
                 'secret' => $environmentVariables['AWS_SECRET'],
             ],
-        ]);
-ini_set('memory_limit', '-1');
-        //if (null == $s3Client->headBucket( array('Bucket' => $environmentVariables['BUCKET_NAME']))) {
-            // Create S3 bucket
+        ]); 
+
+        // Check if the bucket already exists in our account
+        $buckets = $s3Client->listBuckets();
+
+        $bucketExists = false;
+
+        foreach ($buckets['Buckets'] as $bucket) {
+            if ($bucket['Name'] === $environmentVariables['BUCKET_NAME']) {
+                $bucketExists = true;
+            }
+
+        }
+        if ($bucketExists == false) {
             try {
+                // Create S3 bucket
                 $result = $s3Client->createBucket([
                     'Bucket' => $environmentVariables['BUCKET_NAME'],
                 ]);
             } catch (AwsException $e) {
-                echo $e->getMessage();
+                $push = array($environmentVariables['BUCKET_NAME'], 'x');
             }
-        //}
+        }
+
+        array_push($bucketGenOutput, $push);
+
+        $this->table(
+            array('S3 Bucket', 'Status'),
+            $bucketGenOutput
+        );
+
+        if ($bucketGenOutput['0']['2'] == 'x') {echo PHP_EOL . 'S3 Broken' . PHP_EOL ;exit(1);}
 
         if ($this->option('no-build') !== 'true' ) {
             if (isset($dockerVariables)) {
