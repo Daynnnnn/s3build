@@ -7,6 +7,7 @@ use LaravelZero\Framework\Commands\Command;
 use Aws\S3\S3Client;
 use Aws\Exception\AwsException;
 use Miloske85\php_cli_table\Table as CliTable;
+use App\Providers\AwsProvider;
 
 class Build extends Command
 {
@@ -62,7 +63,7 @@ class Build extends Command
                     $environmentVariables[$key] = (string) $value;
                 }
             }
-        }   
+        }
 
         // Error on missing needed values
         if (null == $this->option('app')) { echo 'Please set the --app option'; exit(1);} else {$environmentVariables['app'] = $this->option('app');}
@@ -87,6 +88,9 @@ class Build extends Command
         if (!isset($environmentVariables['BUCKET_NAME'])) {
             $environmentVariables['BUCKET_NAME'] = 's3build-' . $environmentVariables['app'] . '-' . $environmentVariables['branch'] . '-' . $environmentVariables['environment'];
         }
+        if (!isset($environmentVariables['BUCKET_REGION'])) {
+            $environmentVariables['BUCKET_REGION'] = 'eu-west-1';
+        }
         if (!isset($environmentVariables['COMMAND'])) {
             $environmentVariables['COMMAND'] = 'make';
         }
@@ -96,6 +100,7 @@ class Build extends Command
         $Policy = str_replace('{{ bucket }}', $environmentVariables['BUCKET_NAME'], $Policy);
         $bucketGenOutput = array();
         $push = array($environmentVariables['BUCKET_NAME'], '✓');
+
         // Define S3 Client
         $s3Client = new S3Client([
             'region' => 'eu-west-1',
@@ -106,18 +111,7 @@ class Build extends Command
             ],
         ]); 
 
-        // Check if the bucket already exists in our account
-        $buckets = $s3Client->listBuckets();
-
-        $bucketExists = false;
-
-        foreach ($buckets['Buckets'] as $bucket) {
-            if ($bucket['Name'] === $environmentVariables['BUCKET_NAME']) {
-                $bucketExists = true;
-            }
-
-        }
-        if ($bucketExists == false) {
+        if (AwsProvider::checkForBucket($s3Client, $environmentVariables['BUCKET_NAME']) == false) {
             try {
                 // Create S3 bucket
                 $result = $s3Client->createBucket([
@@ -125,6 +119,7 @@ class Build extends Command
                 ]);
             } catch (AwsException $e) {
                 $push = array($environmentVariables['BUCKET_NAME'], 'x');
+                $BucketGenError = $e->getMessage();
             }
         }
 
@@ -135,7 +130,14 @@ class Build extends Command
             $bucketGenOutput
         );
 
-        if ($bucketGenOutput['0']['2'] == 'x') {echo PHP_EOL . 'S3 Broken' . PHP_EOL ;exit(1);}
+        if ($bucketGenOutput['0']['1'] == 'x') {
+
+            $this->table(
+                array('S3 Bucket Creation Failed'),
+                AwsProvider::shortError($BucketGenError)
+            );
+            exit(1);
+        }
 
         if ($this->option('no-build') !== 'true' ) {
             if (isset($dockerVariables)) {
@@ -147,44 +149,29 @@ class Build extends Command
                 }
 
                 $command = 'docker run --volume ' . getcwd() . ':/data --workdir /data --rm -e ' . implode(' -e ', $env) . ' ' . $environmentVariables['IMAGE'] . ' ' . $environmentVariables['COMMAND'];
-                print_r($command);
-                exit(0);
+                system($command);
     
             } else {
     
                 $command = 'docker run --volume ' . getcwd() . ':/data --workdir /data --rm ' . $environmentVariables['IMAGE'] . ' ' . $environmentVariables['COMMAND'];
-                print_r($command);
-                exit(0);
+                system($command);
             }
         }
 
         // Upload site
         $s3Client->uploadDirectory($environmentVariables['OUT_DIR'].'/', $environmentVariables['BUCKET_NAME']);
 
-        $result = $s3Client->putBucketWebsite([
-            'Bucket' => $environmentVariables['BUCKET_NAME'],
-            'WebsiteConfiguration' => [
-                'ErrorDocument' => [
-                    'Key' => $environmentVariables['ERROR_FILE'],
-                ],
-                'IndexDocument' => [
-                    'Suffix' => $environmentVariables['INDEX_FILE'],
-                ],
-            ],
-        ]);
+        // Set bucket to server static site
+        AwsProvider::setS3Site($s3Client, $environmentVariables['BUCKET_NAME'], $environmentVariables['INDEX_FILE'], $environmentVariables['ERROR_FILE']);
 
-        // Sets public bucket policy
-        try {
-            $resp = $s3Client->putBucketPolicy([
-                'Bucket' => $environmentVariables['BUCKET_NAME'],
-                'Policy' => $Policy,
-            ]);
-            echo "Succeed in put a policy on bucket: " . $environmentVariables['BUCKET_NAME'] . "\n";
-        } catch (AwsException $e) {
-            // Display error message
-            echo $e->getMessage();
-            echo "\n";
-        }
+        // Sets public read bucket policy
+        $s3Client->putBucketPolicy(['Bucket' => $environmentVariables['BUCKET_NAME'],'Policy' => $Policy,]);
+
+
+        $this->table(
+            array('Domains'),
+            array(array('https://' . $environmentVariables['BUCKET_NAME']. '.s3-' . $environmentVariables['BUCKET_REGION'] . '.amazonaws.com/index.html'))
+        );
     }
 
     /**
