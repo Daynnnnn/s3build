@@ -43,9 +43,9 @@ class Build extends Command
         if (isset($_ENV) && count($_ENV) > 1) {
             // Add deploy_environment variables from bamboo_env_ keys
             foreach ($_ENV as $key => $value) {
-                if (substr($key, 0, 14 ) === "bamboo_docker_") {
+                if (substr($key, 0, 14 ) === 'bamboo_docker_') {
                     $dockerVariables[substr($key, 14)] = $value;
-                } elseif (substr($key, 0, 7 ) === "bamboo_") {
+                } elseif (substr($key, 0, 7 ) === 'bamboo_') {
                     $this->environmentVariables[substr($key, 7)] = $value;
                 }
             }
@@ -86,7 +86,7 @@ class Build extends Command
             $this->environmentVariables['ERROR_FILE'] = 'error.html';
         }
         if (!isset($this->environmentVariables['BUCKET_NAME'])) {
-            $this->environmentVariables['BUCKET_NAME'] = 's3build-' . $this->environmentVariables['app'] . '-' . $this->environmentVariables['branch'] . '-' . $this->environmentVariables['environment'];
+            $this->environmentVariables['BUCKET_NAME'] = 's3build-shared';
         }
         if (!isset($this->environmentVariables['BUCKET_REGION'])) {
             $this->environmentVariables['BUCKET_REGION'] = 'eu-west-1';
@@ -96,8 +96,21 @@ class Build extends Command
         }
 
         // Set S3 bucket Variables
-        $Policy = file_get_contents(__DIR__.'/../../config/PublicBucket.json');
-        $Policy = str_replace('{{ bucket }}', $this->environmentVariables['BUCKET_NAME'], $Policy);
+        $this->environmentVariables['BUCKET_NAME_POSTFIX'] = '/' . $this->option('app') . '-' . $this->option('branch') . '-' . $this->option('environment') . '-' . $this->option('build');
+
+        $Policy = [
+           'Version' => '2008-10-17', 
+           'Statement' => [
+                 [
+                    'Sid' => 'AllowPublicRead', 
+                    'Effect' => 'Allow', 
+                    'Principal' => '*', 
+                    'Action' => 's3:GetObject', 
+                    'Resource' => 'arn:aws:s3:::' . $this->environmentVariables['BUCKET_NAME'] . '/*' 
+                 ] 
+              ] 
+        ]; 
+
         $bucketGenOutput = array();
         $push = array($this->environmentVariables['BUCKET_NAME'], '✓');
 
@@ -176,7 +189,7 @@ class Build extends Command
 
         $this->table(
             array('Domains'),
-            array(array('https://' . $this->environmentVariables['BUCKET_NAME']. '.s3-' . $this->environmentVariables['BUCKET_REGION'] . '.amazonaws.com/' . $this->option('build') . '/' . $this->environmentVariables['INDEX_FILE']))
+            array(array('https://' . $this->environmentVariables['BUCKET_NAME']. '.s3-' . $this->environmentVariables['BUCKET_REGION'] . '.amazonaws.com' . $this->environmentVariables['BUCKET_NAME_POSTFIX'] . '/' . $this->environmentVariables['INDEX_FILE']))
         );
     }
 
