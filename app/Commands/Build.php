@@ -18,6 +18,7 @@ class Build extends Command
      */
     protected $signature = 'build 
                             {--app= : Name of App}
+                            {--build= : Build number}
                             {--branch= : App Branch}
                             {--environment= : App Environment}
                             {--no-build= : If true, docker build won\'t run}';
@@ -30,6 +31,7 @@ class Build extends Command
     protected $description = 'Deploy a Static Website To An S3 Bucket';
 
     protected $environmentVariables = array();
+
     /**
      * Execute the console command.
      *
@@ -157,7 +159,7 @@ class Build extends Command
         }
 
         // Upload site
-        $s3Client->uploadDirectory($this->environmentVariables['OUT_DIR'].'/', $this->environmentVariables['BUCKET_NAME']);
+        $s3Client->uploadDirectory($this->environmentVariables['OUT_DIR'].'/', $this->environmentVariables['BUCKET_NAME'] . '/' . $this->option('build'));
 
         // Set bucket to server static site
         AwsProvider::setS3Site($s3Client, $this->environmentVariables['BUCKET_NAME'], $this->environmentVariables['INDEX_FILE'], $this->environmentVariables['ERROR_FILE']);
@@ -174,7 +176,7 @@ class Build extends Command
 
         $this->table(
             array('Domains'),
-            array(array('http://' . $this->environmentVariables['BUCKET_NAME']. '.s3-website-' . $this->environmentVariables['BUCKET_REGION'] . '.amazonaws.com/'))
+            array(array('https://' . $this->environmentVariables['BUCKET_NAME']. '.s3-' . $this->environmentVariables['BUCKET_REGION'] . '.amazonaws.com/' . $this->option('build') . '/' $this->environmentVariables['INDEX_FILE']))
         );
     }
 
