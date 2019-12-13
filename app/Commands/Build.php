@@ -17,13 +17,10 @@ class Build extends Command
      * @var string
      */
     protected $signature = 'build 
-                            {--app= : Name of app}
-                            {--branch= : Branch}
-                            {--environment= : Environment}
-                            {--AWS_ID= : AWS Access ID }
-                            {--AWS_SECRET= : AWS Secret Access Key}
-                            {--no-build= : If true, docker build won\'t run}
-                            {--out-dir= : Folder built files are placed}';
+                            {--app= : Name of App}
+                            {--branch= : App Branch}
+                            {--environment= : App Environment}
+                            {--no-build= : If true, docker build won\'t run}';
 
     /**
      * The description of the command.
@@ -150,12 +147,12 @@ class Build extends Command
                 }
 
                 $command = 'docker run --volume ' . getcwd() . ':/data --workdir /data --rm -e ' . implode(' -e ', $env) . ' ' . $this->environmentVariables['IMAGE'] . ' ' . $this->environmentVariables['COMMAND'];
-                system($command);
+                shell_exec($command);
     
             } else {
     
                 $command = 'docker run --volume ' . getcwd() . ':/data --workdir /data --rm ' . $this->environmentVariables['IMAGE'] . ' ' . $this->environmentVariables['COMMAND'];
-                system($command);
+                shell_exec($command);
             }
         }
 
