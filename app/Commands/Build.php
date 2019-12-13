@@ -174,7 +174,7 @@ class Build extends Command
 
         $this->table(
             array('Domains'),
-            array(array('https://' . $this->environmentVariables['BUCKET_NAME']. '.s3-' . $this->environmentVariables['BUCKET_REGION'] . '.amazonaws.com/index.html'))
+            array(array('http://' . $this->environmentVariables['BUCKET_NAME']. '.s3-website-' . $this->environmentVariables['BUCKET_REGION'] . '.amazonaws.com/'))
         );
     }
 
