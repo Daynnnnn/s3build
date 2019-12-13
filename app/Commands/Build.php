@@ -32,6 +32,7 @@ class Build extends Command
      */
     protected $description = 'Deploy a Static Website To An S3 Bucket';
 
+    protected $environmentVariables = array();
     /**
      * Execute the console command.
      *
@@ -46,7 +47,7 @@ class Build extends Command
                 if (substr($key, 0, 14 ) === "bamboo_docker_") {
                     $dockerVariables[substr($key, 14)] = $value;
                 } elseif (substr($key, 0, 7 ) === "bamboo_") {
-                    $environmentVariables[substr($key, 7)] = $value;
+                    $this->environmentVariables[substr($key, 7)] = $value;
                 }
             }
 
@@ -57,68 +58,68 @@ class Build extends Command
                 }
             }
 
-            if (count($environmentVariables) > 0) {
+            if (count($this->environmentVariables) > 0) {
                 // Cast each environment variable as a string
-                foreach ($environmentVariables as $key => $value) {
-                    $environmentVariables[$key] = (string) $value;
+                foreach ($this->environmentVariables as $key => $value) {
+                    $this->environmentVariables[$key] = (string) $value;
                 }
             }
         }
 
         // Error on missing needed values
-        if (null == $this->option('app')) { echo 'Please set the --app option'; exit(1);} else {$environmentVariables['app'] = $this->option('app');}
-        if (null == $this->option('branch')) { echo 'Please set the --branch option'; exit(1);} else {$environmentVariables['branch'] = $this->option('branch');}
-        if (null == $this->option('environment')) { echo 'Please set the --environment option'; exit(1);} else {$environmentVariables['environment'] = $this->option('environment');}
-        if (!isset($environmentVariables['AWS_ID'])) { echo 'Please set the --AWS_ID option'; exit(1);}
-        if (!isset($environmentVariables['AWS_SECRET'])) { echo 'Please set the --AWS_SECRET option'; exit(1);}
+        if (null == $this->option('app')) { echo 'Please set the --app option'; exit(1);} else {$this->environmentVariables['app'] = $this->option('app');}
+        if (null == $this->option('branch')) { echo 'Please set the --branch option'; exit(1);} else {$this->environmentVariables['branch'] = $this->option('branch');}
+        if (null == $this->option('environment')) { echo 'Please set the --environment option'; exit(1);} else {$this->environmentVariables['environment'] = $this->option('environment');}
+        if (!isset($this->environmentVariables['AWS_ID'])) { echo 'Please set the --AWS_ID option'; exit(1);}
+        if (!isset($this->environmentVariables['AWS_SECRET'])) { echo 'Please set the --AWS_SECRET option'; exit(1);}
 
         // Set default values on optional values
-        if (!isset($environmentVariables['IMAGE'])) {
-            $environmentVariables['IMAGE'] = 'node:10';
+        if (!isset($this->environmentVariables['IMAGE'])) {
+            $this->environmentVariables['IMAGE'] = 'node:10';
         }
-        if (!isset($environmentVariables['OUT_DIR'])) {
-            $environmentVariables['OUT_DIR'] = 'dist';
+        if (!isset($this->environmentVariables['OUT_DIR'])) {
+            $this->environmentVariables['OUT_DIR'] = 'dist';
         }
-        if (!isset($environmentVariables['INDEX_FILE'])) {
-            $environmentVariables['INDEX_FILE'] = 'index.html';
+        if (!isset($this->environmentVariables['INDEX_FILE'])) {
+            $this->environmentVariables['INDEX_FILE'] = 'index.html';
         }
-        if (!isset($environmentVariables['ERROR_FILE'])) {
-            $environmentVariables['ERROR_FILE'] = 'error.html';
+        if (!isset($this->environmentVariables['ERROR_FILE'])) {
+            $this->environmentVariables['ERROR_FILE'] = 'error.html';
         }
-        if (!isset($environmentVariables['BUCKET_NAME'])) {
-            $environmentVariables['BUCKET_NAME'] = 's3build-' . $environmentVariables['app'] . '-' . $environmentVariables['branch'] . '-' . $environmentVariables['environment'];
+        if (!isset($this->environmentVariables['BUCKET_NAME'])) {
+            $this->environmentVariables['BUCKET_NAME'] = 's3build-' . $this->environmentVariables['app'] . '-' . $this->environmentVariables['branch'] . '-' . $this->environmentVariables['environment'];
         }
-        if (!isset($environmentVariables['BUCKET_REGION'])) {
-            $environmentVariables['BUCKET_REGION'] = 'eu-west-1';
+        if (!isset($this->environmentVariables['BUCKET_REGION'])) {
+            $this->environmentVariables['BUCKET_REGION'] = 'eu-west-1';
         }
-        if (!isset($environmentVariables['COMMAND'])) {
-            $environmentVariables['COMMAND'] = 'make';
+        if (!isset($this->environmentVariables['COMMAND'])) {
+            $this->environmentVariables['COMMAND'] = 'make';
         }
 
         // Set S3 bucket Variables
         $Policy = file_get_contents(__DIR__.'/../../config/PublicBucket.json');
-        $Policy = str_replace('{{ bucket }}', $environmentVariables['BUCKET_NAME'], $Policy);
+        $Policy = str_replace('{{ bucket }}', $this->environmentVariables['BUCKET_NAME'], $Policy);
         $bucketGenOutput = array();
-        $push = array($environmentVariables['BUCKET_NAME'], '✓');
+        $push = array($this->environmentVariables['BUCKET_NAME'], '✓');
 
         // Define S3 Client
         $s3Client = new S3Client([
             'region' => 'eu-west-1',
             'version' => '2006-03-01',
             'credentials' => [
-                'key'    => $environmentVariables['AWS_ID'],
-                'secret' => $environmentVariables['AWS_SECRET'],
+                'key'    => $this->environmentVariables['AWS_ID'],
+                'secret' => $this->environmentVariables['AWS_SECRET'],
             ],
         ]); 
 
-        if (AwsProvider::checkForBucket($s3Client, $environmentVariables['BUCKET_NAME']) == false) {
+        if (AwsProvider::checkForBucket($s3Client, $this->environmentVariables['BUCKET_NAME']) == false) {
             try {
                 // Create S3 bucket
                 $result = $s3Client->createBucket([
-                    'Bucket' => $environmentVariables['BUCKET_NAME'],
+                    'Bucket' => $this->environmentVariables['BUCKET_NAME'],
                 ]);
             } catch (AwsException $e) {
-                $push = array($environmentVariables['BUCKET_NAME'], 'x');
+                $push = array($this->environmentVariables['BUCKET_NAME'], 'x');
                 $BucketGenError = $e->getMessage();
             }
         }
@@ -148,29 +149,29 @@ class Build extends Command
                     array_push($env, $key.'='.$value);
                 }
 
-                $command = 'docker run --volume ' . getcwd() . ':/data --workdir /data --rm -e ' . implode(' -e ', $env) . ' ' . $environmentVariables['IMAGE'] . ' ' . $environmentVariables['COMMAND'];
+                $command = 'docker run --volume ' . getcwd() . ':/data --workdir /data --rm -e ' . implode(' -e ', $env) . ' ' . $this->environmentVariables['IMAGE'] . ' ' . $this->environmentVariables['COMMAND'];
                 system($command);
     
             } else {
     
-                $command = 'docker run --volume ' . getcwd() . ':/data --workdir /data --rm ' . $environmentVariables['IMAGE'] . ' ' . $environmentVariables['COMMAND'];
+                $command = 'docker run --volume ' . getcwd() . ':/data --workdir /data --rm ' . $this->environmentVariables['IMAGE'] . ' ' . $this->environmentVariables['COMMAND'];
                 system($command);
             }
         }
 
         // Upload site
-        $s3Client->uploadDirectory($environmentVariables['OUT_DIR'].'/', $environmentVariables['BUCKET_NAME']);
+        $s3Client->uploadDirectory($this->environmentVariables['OUT_DIR'].'/', $this->environmentVariables['BUCKET_NAME']);
 
         // Set bucket to server static site
-        AwsProvider::setS3Site($s3Client, $environmentVariables['BUCKET_NAME'], $environmentVariables['INDEX_FILE'], $environmentVariables['ERROR_FILE']);
+        AwsProvider::setS3Site($s3Client, $this->environmentVariables['BUCKET_NAME'], $this->environmentVariables['INDEX_FILE'], $this->environmentVariables['ERROR_FILE']);
 
         // Sets public read bucket policy
-        $s3Client->putBucketPolicy(['Bucket' => $environmentVariables['BUCKET_NAME'],'Policy' => $Policy,]);
+        $s3Client->putBucketPolicy(['Bucket' => $this->environmentVariables['BUCKET_NAME'],'Policy' => $Policy,]);
 
 
         $this->table(
             array('Domains'),
-            array(array('https://' . $environmentVariables['BUCKET_NAME']. '.s3-' . $environmentVariables['BUCKET_REGION'] . '.amazonaws.com/index.html'))
+            array(array('https://' . $this->environmentVariables['BUCKET_NAME']. '.s3-' . $this->environmentVariables['BUCKET_REGION'] . '.amazonaws.com/index.html'))
         );
     }
 
