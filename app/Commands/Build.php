@@ -147,12 +147,12 @@ class Build extends Command
                 }
 
                 $command = 'docker run --volume ' . getcwd() . ':/data --workdir /data --rm -e ' . implode(' -e ', $env) . ' ' . $this->environmentVariables['IMAGE'] . ' ' . $this->environmentVariables['COMMAND'];
-                shell_exec($command);
+                $output = shell_exec($command);
     
             } else {
     
                 $command = 'docker run --volume ' . getcwd() . ':/data --workdir /data --rm ' . $this->environmentVariables['IMAGE'] . ' ' . $this->environmentVariables['COMMAND'];
-                shell_exec($command);
+                $output = shell_exec($command);
             }
         }
 
@@ -165,6 +165,12 @@ class Build extends Command
         // Sets public read bucket policy
         $s3Client->putBucketPolicy(['Bucket' => $this->environmentVariables['BUCKET_NAME'],'Policy' => $Policy,]);
 
+        $this->table(
+            array('Domains'),
+            array(array('https://' . $this->environmentVariables['BUCKET_NAME']. '.s3-' . $this->environmentVariables['BUCKET_REGION'] . '.amazonaws.com/index.html'))
+        );
+
+        echo PHP_EOL . PHP_EOL . $output . PHP_EOL . PHP_EOL;
 
         $this->table(
             array('Domains'),
