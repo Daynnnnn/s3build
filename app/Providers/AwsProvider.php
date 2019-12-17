@@ -25,10 +25,10 @@ class AwsProvider extends ServiceProvider
     }
 
     public static function shortError($BucketGenError) {
-            if (strrpos($BucketGenError, '409 Conflict') != FALSE){
-                $BucketGenError = 'There is already a bucket with this name not in your account.';
-                return array(array($BucketGenError));
-            }
+        if (strrpos($BucketGenError, '409 Conflict') != FALSE){
+            $BucketGenError = 'There is already a bucket with this name not in your account.';
+            return array(array($BucketGenError));
+        }
     }
 
     public static function setS3Site($s3Client,$BucketName,$IndexFile, $ErrorFile) {
