@@ -177,7 +177,7 @@ class Build extends Command
         }
 
         // Upload site
-        $s3Client->uploadDirectory($this->environmentVariables['OUT_DIR'].'/', $this->environmentVariables['BUCKET_NAME'] . '/' . $this->environmentVariables['BUCKET_NAME_POSTFIX']);
+        $s3Client->uploadDirectory($this->environmentVariables['OUT_DIR'].'/', $this->environmentVariables['BUCKET_NAME'] . $this->environmentVariables['BUCKET_NAME_POSTFIX']);
 
         // Set bucket to server static site
         AwsProvider::setS3Site($s3Client, $this->environmentVariables['BUCKET_NAME'], $this->environmentVariables['INDEX_FILE'], $this->environmentVariables['ERROR_FILE']);
