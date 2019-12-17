@@ -48,6 +48,8 @@ class Build extends Command
                     $dockerVariables[substr($key, 14)] = $value;
                 } elseif (substr($key, 0, 7 ) === 'bamboo_') {
                     $this->environmentVariables[substr($key, 7)] = $value;
+                } else {
+                    $this->environmentVariables[$key] = $value;
                 }
             }
 
