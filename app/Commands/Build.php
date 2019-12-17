@@ -172,7 +172,7 @@ class Build extends Command
         }
 
         // Upload site
-        $s3Client->uploadDirectory($this->environmentVariables['OUT_DIR'].'/', $this->environmentVariables['BUCKET_NAME'] . '/' . $this->option('build'));
+        $s3Client->uploadDirectory($this->environmentVariables['OUT_DIR'].'/', $this->environmentVariables['BUCKET_NAME'] . '/' . $this->environmentVariables['BUCKET_NAME_POSTFIX']);
 
         // Set bucket to server static site
         AwsProvider::setS3Site($s3Client, $this->environmentVariables['BUCKET_NAME'], $this->environmentVariables['INDEX_FILE'], $this->environmentVariables['ERROR_FILE']);
@@ -184,8 +184,6 @@ class Build extends Command
             array('Domains'),
             array(array('https://' . $this->environmentVariables['BUCKET_NAME']. '.s3-' . $this->environmentVariables['BUCKET_REGION'] . '.amazonaws.com/index.html'))
         );
-
-        echo PHP_EOL . PHP_EOL . $output . PHP_EOL . PHP_EOL;
 
         $this->table(
             array('Domains'),
