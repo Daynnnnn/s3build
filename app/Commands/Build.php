@@ -39,6 +39,7 @@ class Build extends Command
      */
     public function handle()
     {
+
         // Set environment variables
         if (isset($_ENV) && count($_ENV) > 1) {
             // Add deploy_environment variables from bamboo_env_ keys
@@ -85,8 +86,12 @@ class Build extends Command
         if (!isset($this->environmentVariables['ERROR_FILE'])) {
             $this->environmentVariables['ERROR_FILE'] = 'error.html';
         }
+        if (!isset($this->environmentVariables['BUCKET_NAME_POSTFIX'])) {
+            $this->environmentVariables['BUCKET_NAME_POSTFIX'] = '/';
+        }
         if (!isset($this->environmentVariables['BUCKET_NAME'])) {
             $this->environmentVariables['BUCKET_NAME'] = 's3build-shared';
+            $this->environmentVariables['BUCKET_NAME_POSTFIX'] = '/' . $this->option('environment') .  '/' . $this->option('app') . '/' . $this->option('branch') . '/' . $this->option('build');
         }
         if (!isset($this->environmentVariables['BUCKET_REGION'])) {
             $this->environmentVariables['BUCKET_REGION'] = 'eu-west-1';
@@ -96,7 +101,7 @@ class Build extends Command
         }
 
         // Set S3 bucket Variables
-        $this->environmentVariables['BUCKET_NAME_POSTFIX'] = '/' . $this->option('app') . '-' . $this->option('branch') . '-' . $this->option('environment') . '-' . $this->option('build');
+        
 
         $Policy = [
            'Version' => '2008-10-17', 
@@ -179,11 +184,6 @@ class Build extends Command
 
         // Sets public read bucket policy
         $s3Client->putBucketPolicy(['Bucket' => $this->environmentVariables['BUCKET_NAME'],'Policy' => json_encode($Policy),]);
-
-        $this->table(
-            array('Domains'),
-            array(array('https://' . $this->environmentVariables['BUCKET_NAME']. '.s3-' . $this->environmentVariables['BUCKET_REGION'] . '.amazonaws.com/index.html'))
-        );
 
         $this->table(
             array('Domains'),
