@@ -133,7 +133,7 @@ class Build extends Command
             'version' => '2006-03-01',
             'credentials' => [
                 'key'    => $this->settings['aws']['awsAccessKeyId'],
-                'secret' => $this->environmentVariables['awsSecretAccessKey'],
+                'secret' => $this->settings['aws']['awsSecretAccessKey'],
             ],
         ]); 
 
