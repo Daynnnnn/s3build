@@ -8,6 +8,7 @@ use Aws\S3\S3Client;
 use Aws\Exception\AwsException;
 use Miloske85\php_cli_table\Table as CliTable;
 use App\Providers\AwsProvider;
+use Symfony\Component\Yaml\Yaml;
 
 class Build extends Command
 {
@@ -21,7 +22,8 @@ class Build extends Command
                             {--build= : Build number}
                             {--branch= : App Branch}
                             {--environment= : App Environment}
-                            {--no-build= : If true, docker build won\'t run}';
+                            {--no-build= : If true, docker build won\'t run}
+                            {--settings= : Path to settings file}';
 
     /**
      * The description of the command.
@@ -68,12 +70,18 @@ class Build extends Command
             }
         }
 
+        if(is_file($this->option('settings'))) {
+            $this->settings = Yaml::parseFile($this->option('settings'));
+        } else {
+            echo 'Specify path to a valid settings.yaml';
+        }
+
         // Error on missing needed values
         if (null == $this->option('app')) { echo 'Please set the --app option'; exit(1);} else {$this->environmentVariables['app'] = $this->option('app');}
         if (null == $this->option('branch')) { echo 'Please set the --branch option'; exit(1);} else {$this->environmentVariables['branch'] = $this->option('branch');}
         if (null == $this->option('environment')) { echo 'Please set the --environment option'; exit(1);} else {$this->environmentVariables['environment'] = $this->option('environment');}
-        if (!isset($this->environmentVariables['AWS_ID'])) { echo 'Please set the --AWS_ID option'; exit(1);}
-        if (!isset($this->environmentVariables['AWS_SECRET'])) { echo 'Please set the --AWS_SECRET option'; exit(1);}
+        if (!isset($this->settings['aws']['awsAccessKeyId']))   { echo 'Please set the aws.awsAccessKeyId value in your settings.yaml'; exit(1);}
+        if (!isset($this->settings['aws']['awsSecretAccessKey'])) { echo 'Please set the aws.awsSecretAccessKey value in your settings.yaml'; exit(1);}
 
         // Set default values on optional values
         if (!isset($this->environmentVariables['IMAGE'])) {
@@ -94,9 +102,6 @@ class Build extends Command
         if (!isset($this->environmentVariables['BUCKET_NAME'])) {
             $this->environmentVariables['BUCKET_NAME'] = 's3build-shared';
             $this->environmentVariables['BUCKET_NAME_POSTFIX'] = '/' . $this->option('environment') .  '/' . $this->option('app') . '/' . $this->option('branch') . '/' . $this->option('build');
-        }
-        if (!isset($this->environmentVariables['BUCKET_REGION'])) {
-            $this->environmentVariables['BUCKET_REGION'] = 'eu-west-1';
         }
         if (!isset($this->environmentVariables['COMMAND'])) {
             $this->environmentVariables['COMMAND'] = 'make';
@@ -123,11 +128,11 @@ class Build extends Command
 
         // Define S3 Client
         $s3Client = new S3Client([
-            'region' => 'eu-west-1',
+            'region' => $this->settings['aws']['region'],
             'version' => '2006-03-01',
             'credentials' => [
-                'key'    => $this->environmentVariables['AWS_ID'],
-                'secret' => $this->environmentVariables['AWS_SECRET'],
+                'key'    => $this->settings['aws']['awsAccessKeyId'],
+                'secret' => $this->environmentVariables['awsSecretAccessKey'],
             ],
         ]); 
 
@@ -189,7 +194,7 @@ class Build extends Command
 
         $this->table(
             array('Domains'),
-            array(array('http://' . $this->environmentVariables['BUCKET_NAME']. '.s3-website-' . $this->environmentVariables['BUCKET_REGION'] . '.amazonaws.com' . $this->environmentVariables['BUCKET_NAME_POSTFIX'] . '/' . $this->environmentVariables['INDEX_FILE']))
+            array(array('http://' . $this->environmentVariables['BUCKET_NAME']. '.s3-website-' . $this->settings['aws']['region'] . '.amazonaws.com' . $this->environmentVariables['BUCKET_NAME_POSTFIX'] . '/' . $this->environmentVariables['INDEX_FILE']))
         );
     }
 
