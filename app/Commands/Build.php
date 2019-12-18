@@ -74,6 +74,7 @@ class Build extends Command
             $this->settings = Yaml::parseFile($this->option('settings'));
         } else {
             echo 'Specify path to a valid settings.yaml';
+            exit(1);
         }
 
         // Error on missing needed values
