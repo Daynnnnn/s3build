@@ -101,8 +101,8 @@ class Build extends Command
             $this->environmentVariables['BUCKET_NAME_POSTFIX'] = '/';
         }
         if (!isset($this->environmentVariables['BUCKET_NAME'])) {
-            $this->environmentVariables['BUCKET_NAME'] = 's3build-shared';
-            $this->environmentVariables['BUCKET_NAME_POSTFIX'] = '/' . $this->option('environment') .  '/' . $this->option('app') . '/' . $this->option('branch') . '/' . $this->option('build');
+            $this->environmentVariables['BUCKET_NAME'] = $this->settings['aws']['shared-bucket'];
+            $this->environmentVariables['BUCKET_NAME_POSTFIX'] = '/' . $this->option('environment') .  '/' . $this->option('app') . '/' . $this->option('branch') . '/' . $this->option('build') . '/';
         }
         if (!isset($this->environmentVariables['COMMAND'])) {
             $this->environmentVariables['COMMAND'] = 'make';
@@ -195,7 +195,7 @@ class Build extends Command
 
         $this->table(
             array('Domains'),
-            array(array('http://' . $this->environmentVariables['BUCKET_NAME']. '.s3-website-' . $this->settings['aws']['region'] . '.amazonaws.com' . $this->environmentVariables['BUCKET_NAME_POSTFIX'] . '/' . $this->environmentVariables['INDEX_FILE']))
+            array(array('http://' . $this->environmentVariables['BUCKET_NAME']. '.s3-website-' . $this->settings['aws']['region'] . '.amazonaws.com' . $this->environmentVariables['BUCKET_NAME_POSTFIX'] . $this->environmentVariables['INDEX_FILE']))
         );
     }
 
