@@ -175,12 +175,26 @@ class Build extends Command
                 }
 
                 $command = 'docker run --volume ' . getcwd() . ':/data --workdir /data --rm -e ' . implode(' -e ', $env) . ' ' . $this->environmentVariables['IMAGE'] . ' ' . $this->environmentVariables['COMMAND'];
-                $output = shell_exec($command);
+                exec($command, $out, $code);
+
+                if ($code !== 0){
+                    foreach ($out as $key => $line) {
+                        echo $line . PHP_EOL;
+                    }
+                    exit(1);
+                }
     
             } else {
     
                 $command = 'docker run --volume ' . getcwd() . ':/data --workdir /data --rm ' . $this->environmentVariables['IMAGE'] . ' ' . $this->environmentVariables['COMMAND'];
-                $output = shell_exec($command);
+                exec($command, $out, $code);
+
+                if ($code !== 0){
+                    foreach ($out as $key => $line) {
+                        echo $line . PHP_EOL;
+                    }
+                    exit(1);
+                }
             }
         }
 
