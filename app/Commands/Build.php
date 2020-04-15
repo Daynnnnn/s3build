@@ -166,6 +166,7 @@ class Build extends Command
         }
 
         if ($this->option('no-build') !== 'true' ) {
+            $dockerString = '';
             if (isset($dockerVariables)) {
     
                 $env = array();
@@ -177,10 +178,15 @@ class Build extends Command
                 $command = 'docker run --volume ' . getcwd() . ':/data --workdir /data --rm -e ' . implode(' -e ', $env) . ' ' . $this->environmentVariables['IMAGE'] . ' ' . $this->environmentVariables['COMMAND'];
                 exec($command, $out, $code);
 
+                foreach ($out as $key => $line) {
+                    $dockerString .= $line . PHP_EOL;
+                }
+
                 if ($code !== 0){
-                    foreach ($out as $key => $line) {
-                        echo $line . PHP_EOL;
-                    }
+                    $this->table(
+                        array('Build Output'),
+                        array(array($dockerString))
+                    );
                     exit(1);
                 }
     
@@ -189,17 +195,30 @@ class Build extends Command
                 $command = 'docker run --volume ' . getcwd() . ':/data --workdir /data --rm ' . $this->environmentVariables['IMAGE'] . ' ' . $this->environmentVariables['COMMAND'];
                 exec($command, $out, $code);
 
+                foreach ($out as $key => $line) {
+                    $dockerString .= $line . PHP_EOL;
+                }
+
                 if ($code !== 0){
-                    foreach ($out as $key => $line) {
-                        echo $line . PHP_EOL;
-                    }
+                    $this->table(
+                        array('Build Output'),
+                        array(array($dockerString))
+                    );
                     exit(1);
                 }
             }
         }
 
         // Upload site
-        $s3Client->uploadDirectory($this->environmentVariables['OUT_DIR'].'/', $this->environmentVariables['BUCKET_NAME'] . $this->environmentVariables['BUCKET_NAME_POSTFIX']);
+        if (is_dir($this->environmentVariables['OUT_DIR'])) {
+            $s3Client->uploadDirectory($this->environmentVariables['OUT_DIR'].'/', $this->environmentVariables['BUCKET_NAME'] . $this->environmentVariables['BUCKET_NAME_POSTFIX']);
+        } else {
+            $this->table(
+                array('Error'),
+                array(array('No directory with the name ' . $this->environmentVariables['OUT_DIR'] . '. Please set the OUT_DIR environment variable directory your built assets go to.'))
+            );
+            exit(1);
+        }
 
         // Set bucket to server static site
         AwsProvider::setS3Site($s3Client, $this->environmentVariables['BUCKET_NAME'], $this->environmentVariables['INDEX_FILE'], $this->environmentVariables['ERROR_FILE']);
@@ -207,6 +226,13 @@ class Build extends Command
         // Sets public read bucket policy
         $s3Client->putBucketPolicy(['Bucket' => $this->environmentVariables['BUCKET_NAME'],'Policy' => json_encode($Policy),]);
 
+        $this->table(
+            array('Build Output'),
+            array(array($dockerString))
+        );
+
+        echo PHP_EOL;
+        
         $this->table(
             array('Domains'),
             array(array('http://' . $this->environmentVariables['BUCKET_NAME']. '.s3-website-' . $this->settings['aws']['region'] . '.amazonaws.com' . $this->environmentVariables['BUCKET_NAME_POSTFIX'] . $this->environmentVariables['INDEX_FILE']))
