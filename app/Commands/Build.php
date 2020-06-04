@@ -225,11 +225,13 @@ class Build extends Command
 
         // Sets public read bucket policy
         $s3Client->putBucketPolicy(['Bucket' => $this->environmentVariables['BUCKET_NAME'],'Policy' => json_encode($Policy),]);
-
-        $this->table(
-            array('Build Output'),
-            array(array($dockerString))
-        );
+        
+        if ($this->option('no-build') !== 'true' ) {
+            $this->table(
+                array('Build Output'),
+                array(array($dockerString))
+            );
+        }
 
         echo PHP_EOL;
         
