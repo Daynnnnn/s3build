@@ -32,8 +32,6 @@ class Build extends Command
      */
     protected $description = 'Deploy a Static Website To An S3 Bucket';
 
-    protected $environmentVariables = array();
-
     /**
      * Execute the console command.
      *
@@ -41,13 +39,12 @@ class Build extends Command
      */
     public function handle()
     {
-
         // Set environment variables
         if (isset($_ENV) && count($_ENV) > 1) {
             // Add deploy_environment variables from bamboo_env_ keys
             foreach ($_ENV as $key => $value) {
-                if (substr($key, 0, 14 ) === 'bamboo_docker_') {
-                    $dockerVariables[substr($key, 14)] = $value;
+                if (substr($key, 0, 11 ) === 'bamboo_env_') {
+                    $dockerVariables[substr($key, 11)] = $value;
                 } elseif (substr($key, 0, 7 ) === 'bamboo_') {
                     $this->environmentVariables[substr($key, 7)] = $value;
                 } else {
@@ -62,7 +59,7 @@ class Build extends Command
                 }
             }
 
-            if (count($this->environmentVariables) > 0) {
+            if (isset($this->environmentVariables) && count($this->environmentVariables) > 0) {
                 // Cast each environment variable as a string
                 foreach ($this->environmentVariables as $key => $value) {
                     $this->environmentVariables[$key] = (string) $value;
@@ -86,7 +83,7 @@ class Build extends Command
 
         // Set default values on optional values
         if (!isset($this->environmentVariables['IMAGE'])) {
-            $this->environmentVariables['IMAGE'] = 'node:10';
+            $this->environmentVariables['IMAGE'] = 'node:12';
         }
         if (!isset($this->environmentVariables['OUT_DIR'])) {
             $this->environmentVariables['OUT_DIR'] = 'dist';
@@ -98,11 +95,13 @@ class Build extends Command
             $this->environmentVariables['ERROR_FILE'] = 'error.html';
         }
         if (!isset($this->environmentVariables['BUCKET_NAME_POSTFIX'])) {
-            $this->environmentVariables['BUCKET_NAME_POSTFIX'] = '/';
+            $this->environmentVariables['BUCKET_NAME_POSTFIX'] = array('/');
+        } else {
+            $this->environmentVariables['BUCKET_NAME_POSTFIX'] = array($this->environmentVariables['BUCKET_NAME_POSTFIX']);
         }
         if (!isset($this->environmentVariables['BUCKET_NAME'])) {
             $this->environmentVariables['BUCKET_NAME'] = $this->settings['aws']['shared-bucket'];
-            $this->environmentVariables['BUCKET_NAME_POSTFIX'] = '/' . $this->option('environment') .  '/' . $this->option('app') . '/' . $this->option('branch') . '/' . $this->option('build') . '/';
+            $this->environmentVariables['BUCKET_NAME_POSTFIX'] = array('/' . $this->option('environment') .  '/' . $this->option('app') . '/' . $this->option('branch') . '/', '/_old/' . $this->option('environment') .  '/' . $this->option('app') . '/' . $this->option('branch') . '/' . $this->option('build') . '/');
         }
         if (!isset($this->environmentVariables['COMMAND'])) {
             $this->environmentVariables['COMMAND'] = 'make';
@@ -209,15 +208,21 @@ class Build extends Command
             }
         }
 
+        $domains = array(array());
         // Upload site
-        if (is_dir($this->environmentVariables['OUT_DIR'])) {
-            $s3Client->uploadDirectory($this->environmentVariables['OUT_DIR'].'/', $this->environmentVariables['BUCKET_NAME'] . $this->environmentVariables['BUCKET_NAME_POSTFIX']);
-        } else {
-            $this->table(
-                array('Error'),
-                array(array('No directory with the name ' . $this->environmentVariables['OUT_DIR'] . '. Please set the OUT_DIR environment variable directory your built assets go to.'))
-            );
-            exit(1);
+        foreach ($this->environmentVariables['BUCKET_NAME_POSTFIX'] as $key => $BUCKET_NAME_POSTFIX) {
+            if (is_dir($this->environmentVariables['OUT_DIR'])) {
+                $command = 'export AWS_ACCESS_KEY_ID='.$this->settings['aws']['awsAccessKeyId'].'; export AWS_SECRET_ACCESS_KEY='.$this->settings['aws']['awsSecretAccessKey'].'; aws s3 sync '.$this->environmentVariables['OUT_DIR'].'/ s3://'.$this->environmentVariables['BUCKET_NAME'] . $BUCKET_NAME_POSTFIX. ' --delete';
+                shell_exec($command);
+                array_push($domains['0'], 'http://' . $this->environmentVariables['BUCKET_NAME']. '.s3-website-' . $this->settings['aws']['region'] . '.amazonaws.com' . $BUCKET_NAME_POSTFIX . $this->environmentVariables['INDEX_FILE']);
+            } else {
+                $this->table(
+                    array('Error'),
+                    array(array('No directory with the name ' . $this->environmentVariables['OUT_DIR'] . '. Please set the OUT_DIR environment variable directory your built assets go to.'))
+                );
+                exit(1);
+            }
+            
         }
 
         // Set bucket to server static site
@@ -237,7 +242,7 @@ class Build extends Command
         
         $this->table(
             array('Domains'),
-            array(array('http://' . $this->environmentVariables['BUCKET_NAME']. '.s3-website-' . $this->settings['aws']['region'] . '.amazonaws.com' . $this->environmentVariables['BUCKET_NAME_POSTFIX'] . $this->environmentVariables['INDEX_FILE']))
+            $domains
         );
     }
 
