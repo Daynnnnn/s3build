@@ -22,7 +22,7 @@ class Build extends Command
                             {--build= : Build number}
                             {--branch= : App Branch}
                             {--environment= : App Environment}
-                            {--no-build= : If true, docker build won\'t run}
+                            {--no-build : If set, docker build won\'t run}
                             {--settings= : Path to settings file}';
 
     /**
@@ -30,7 +30,7 @@ class Build extends Command
      *
      * @var string
      */
-    protected $description = 'Deploy a Static Website To An S3 Bucket';
+    protected $description = 'Build And Deploy Static Sites to S3';
 
     /**
      * Execute the console command.
@@ -164,7 +164,7 @@ class Build extends Command
             exit(1);
         }
 
-        if ($this->option('no-build') !== 'true' ) {
+        if ($this->option('no-build') !== true ) {
             $dockerString = '';
             if (isset($dockerVariables)) {
     
@@ -214,7 +214,7 @@ class Build extends Command
             if (is_dir($this->environmentVariables['OUT_DIR'])) {
                 $command = 'export AWS_ACCESS_KEY_ID='.$this->settings['aws']['awsAccessKeyId'].'; export AWS_SECRET_ACCESS_KEY='.$this->settings['aws']['awsSecretAccessKey'].'; aws s3 sync '.$this->environmentVariables['OUT_DIR'].'/ s3://'.$this->environmentVariables['BUCKET_NAME'] . $BUCKET_NAME_POSTFIX. ' --delete';
                 shell_exec($command);
-                array_push($domains['0'], 'http://' . $this->environmentVariables['BUCKET_NAME']. '.s3-website-' . $this->settings['aws']['region'] . '.amazonaws.com' . $BUCKET_NAME_POSTFIX . $this->environmentVariables['INDEX_FILE']);
+                array_push($domains, array('http://' . $this->environmentVariables['BUCKET_NAME']. '.s3-website-' . $this->settings['aws']['region'] . '.amazonaws.com' . $BUCKET_NAME_POSTFIX));
             } else {
                 $this->table(
                     array('Error'),
@@ -231,7 +231,7 @@ class Build extends Command
         // Sets public read bucket policy
         $s3Client->putBucketPolicy(['Bucket' => $this->environmentVariables['BUCKET_NAME'],'Policy' => json_encode($Policy),]);
         
-        if ($this->option('no-build') !== 'true' ) {
+        if ($this->option('no-build') !== true ) {
             $this->table(
                 array('Build Output'),
                 array(array($dockerString))
