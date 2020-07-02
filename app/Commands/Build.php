@@ -4,6 +4,7 @@ namespace App\Commands;
 
 use Illuminate\Console\Scheduling\Schedule;
 use LaravelZero\Framework\Commands\Command;
+use Aws\CloudFront\CloudfrontClient;
 use Aws\S3\S3Client;
 use Aws\Exception\AwsException;
 use Miloske85\php_cli_table\Table as CliTable;
@@ -37,6 +38,17 @@ class Build extends Command
      *
      * @return mixed
      */
+
+    public function generateRandomString($length = 10) {
+	    $characters = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+	    $charactersLength = strlen($characters);
+	    $randomString = '';
+	    for ($i = 0; $i < $length; $i++) {
+	        $randomString .= $characters[rand(0, $charactersLength - 1)];
+	    }
+	    return $randomString;
+	}
+
     public function handle()
     {
         // Set environment variables
@@ -231,6 +243,28 @@ class Build extends Command
         // Sets public read bucket policy
         $s3Client->putBucketPolicy(['Bucket' => $this->environmentVariables['BUCKET_NAME'],'Policy' => json_encode($Policy),]);
         
+        if (isset($this->environmentVariables['CLOUDFRONT_ID'])) {
+            $cloudFront = new CloudfrontClient([
+                'version'     => 'latest',
+                'region'      => $this->environmentVariables['CLOUDFRONT_REGION'],
+                'credentials' => [
+                    'key'    => $this->environmentVariables['CLOUDFRONT_ACCESS_KEY_ID'],
+                    'secret' => $this->environmentVariables['CLOUDFRONT_SECRET_ACCESS_KEY'],
+                ]
+            ]);
+        
+            $result = $cloudFront->createInvalidation([
+                'DistributionId' => $this->environmentVariables['CLOUDFRONT_ID'], 
+                'InvalidationBatch' => [
+                    'CallerReference' => $this->generateRandomString(16),
+                    'Paths' => [
+                        'Items' => ['/*'],
+                        'Quantity' => 1
+                    ]
+                ]
+            ]);
+        }
+
         if ($this->option('no-build') !== 'true' ) {
             $this->table(
                 array('Build Output'),
