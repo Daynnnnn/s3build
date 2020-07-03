@@ -4,7 +4,7 @@ namespace App\Commands;
 
 use Illuminate\Console\Scheduling\Schedule;
 use LaravelZero\Framework\Commands\Command;
-use Aws\CloudFront\CloudfrontClient;
+use Aws\CloudFront\CloudFrontClient;
 use Aws\S3\S3Client;
 use Aws\Exception\AwsException;
 use Miloske85\php_cli_table\Table as CliTable;
@@ -243,7 +243,23 @@ class Build extends Command
         // Sets public read bucket policy
         $s3Client->putBucketPolicy(['Bucket' => $this->environmentVariables['BUCKET_NAME'],'Policy' => json_encode($Policy),]);
         
-        if (isset($this->environmentVariables['CLOUDFRONT_ID'])) {
+        $correctBranch = true;
+        $correctEnvironment = true;
+        $runCloudfrontInvalidation = true;
+
+        if (isset($this->environmentVariables['CLOUDFRONT_BRANCH']) && $this->environmentVariables['CLOUDFRONT_BRANCH'] !== $this->environmentVariables['branch']) {
+            $correctBranch = false;
+        }
+
+        if (isset($this->environmentVariables['CLOUDFRONT_ENVIRONMENT']) && $this->environmentVariables['CLOUDFRONT_ENVIRONMENT'] !== $this->environmentVariables['environment']) {
+            $correctEnvironment = false;
+        }
+
+        if ($correctEnvironment == false || $correctBranch == false) {
+            $runCloudfrontInvalidation = false;
+        }
+
+        if (isset($this->environmentVariables['CLOUDFRONT_ID']) && $runCloudfrontInvalidation == true) {
             $cloudFront = new CloudfrontClient([
                 'version'     => 'latest',
                 'region'      => $this->environmentVariables['CLOUDFRONT_REGION'],
