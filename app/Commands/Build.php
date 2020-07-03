@@ -263,6 +263,10 @@ class Build extends Command
                     ]
                 ]
             ]);
+            $this->table(
+                array('Cloudfront Output'),
+                array(array($result))
+            );
         }
 
         if ($this->option('no-build') !== 'true' ) {
