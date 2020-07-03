@@ -176,7 +176,7 @@ class Build extends Command
             exit(1);
         }
 
-        if ($this->option('no-build') !== true ) {
+        if ($this->option('no-build') !== 'true' ) {
             $dockerString = '';
             if (isset($dockerVariables)) {
     
