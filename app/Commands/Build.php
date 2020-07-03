@@ -269,7 +269,7 @@ class Build extends Command
             );
         }
 
-        if ($this->option('no-build') !== 'true' ) 
+        if ($this->option('no-build') !== 'true') { 
             $this->table(
                 array('Build Output'),
                 array(array($dockerString))
