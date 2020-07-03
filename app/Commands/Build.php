@@ -260,6 +260,8 @@ class Build extends Command
         }
 
         if (isset($this->environmentVariables['CLOUDFRONT_ID']) && $runCloudfrontInvalidation == true) {
+            $cloudfrontDomains = [];
+
             $cloudFront = new CloudfrontClient([
                 'version'     => 'latest',
                 'region'      => $this->environmentVariables['CLOUDFRONT_REGION'],
@@ -269,7 +271,7 @@ class Build extends Command
                 ]
             ]);
         
-            $result = $cloudFront->createInvalidation([
+            $invalidationResult = $cloudFront->createInvalidation([
                 'DistributionId' => $this->environmentVariables['CLOUDFRONT_ID'], 
                 'InvalidationBatch' => [
                     'CallerReference' => $this->generateRandomString(16),
@@ -279,10 +281,29 @@ class Build extends Command
                     ]
                 ]
             ]);
-            $this->table(
-                array('Cloudfront Output'),
-                array(array($result))
-            );
+
+            $DistributionDetails = $cloudFront->getDistribution([
+                'Id' => $this->environmentVariables['CLOUDFRONT_ID']
+            ]);
+
+            array_push($cloudfrontDomains, array($DistributionDetails['Distribution']['DomainName']));
+
+            if (isset($DistributionDetails['Distribution']['DistributionConfig']['Aliases']['Items']) && is_array($DistributionDetails['Distribution']['DistributionConfig']['Aliases']['Items'])) {
+                foreach ($DistributionDetails['Distribution']['DistributionConfig']['Aliases']['Items'] as $key => $domain) {
+                    array_push($cloudfrontDomains, array($domain));
+                }
+            }
+            if($invalidationResult->get('@metadata')['statusCode'] == '201') {
+                $this->table(
+                    array('Cloudfront Output'),
+                    array(array('Cloudfront Invalidation Succesful'))
+                );
+            } else {
+                $this->table(
+                    array('Cloudfront Output'),
+                    array(array('Cloudfront Invalidation Unsuccesful' . PHP_EOL . 'Response Code: ' . $invalidationResult->get('@metadata')['statusCode']))
+                );
+            }
         }
 
         if ($this->option('no-build') !== true) { 
@@ -298,6 +319,13 @@ class Build extends Command
             array('Domains'),
             $domains
         );
+
+        if (isset($cloudfrontDomains) && is_array($cloudfrontDomains)) {
+            $this->table(
+                array('Cloudfront Domains'),
+                $cloudfrontDomains
+            );
+        }
     }
 
     /**
