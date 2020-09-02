@@ -154,6 +154,8 @@ class Build extends Command
                 $result = $s3Client->createBucket([
                     'Bucket' => $this->environmentVariables['BUCKET_NAME'],
                 ]);
+                // Sets public read bucket policy
+                $s3Client->putBucketPolicy(['Bucket' => $this->environmentVariables['BUCKET_NAME'],'Policy' => json_encode($Policy)]);
             } catch (AwsException $e) {
                 $push = array($this->environmentVariables['BUCKET_NAME'], 'x');
                 $BucketGenError = $e->getMessage();
@@ -239,9 +241,6 @@ class Build extends Command
 
         // Set bucket to server static site
         AwsProvider::setS3Site($s3Client, $this->environmentVariables['BUCKET_NAME'], $this->environmentVariables['INDEX_FILE'], $this->environmentVariables['ERROR_FILE']);
-
-        // Sets public read bucket policy
-        $s3Client->putBucketPolicy(['Bucket' => $this->environmentVariables['BUCKET_NAME'],'Policy' => json_encode($Policy),]);
         
         $correctBranch = true;
         $correctEnvironment = true;
