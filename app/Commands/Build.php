@@ -51,6 +51,9 @@ class Build extends Command
 
     public function handle()
     {
+        // Set start time
+        $this->startTime = time();
+
         // Set environment variables
         if (isset($_ENV) && count($_ENV) > 1) {
             // Add deploy_environment variables from bamboo_env_ keys
@@ -188,11 +191,11 @@ class Build extends Command
                     array_push($env, $key.'='.$value);
                 }
 
-                $command = 'docker run --volume ' . getcwd() . ':/data --workdir /data --rm -e ' . implode(' -e ', $env) . ' ' . $this->environmentVariables['IMAGE'] . ' ' . $this->environmentVariables['COMMAND'];
+                $command = 'docker run --volume ' . getcwd() . ':/data --workdir /data --rm -e ' . implode(' -e ', $env) . ' ' . $this->environmentVariables['IMAGE'] . ' ' . $this->environmentVariables['COMMAND'] . ' 2>&1 /tmp/s3build-'.$this->startTime;
                 exec($command, $out, $code);
 
-                foreach ($out as $key => $line) {
-                    $dockerString .= $line . PHP_EOL;
+                if (is_file('/tmp/s3build-'.$this->startTime)) {
+                    $dockerString = file_get_contents('/tmp/s3build-'.$this->startTime);
                 }
 
                 if ($code !== 0){
@@ -205,11 +208,11 @@ class Build extends Command
     
             } else {
     
-                $command = 'docker run --volume ' . getcwd() . ':/data --workdir /data --rm ' . $this->environmentVariables['IMAGE'] . ' ' . $this->environmentVariables['COMMAND'];
+                $command = 'docker run --volume ' . getcwd() . ':/data --workdir /data --rm ' . $this->environmentVariables['IMAGE'] . ' ' . $this->environmentVariables['COMMAND'] . ' 2>&1 /tmp/s3build-'.$this->startTime;
                 exec($command, $out, $code);
 
-                foreach ($out as $key => $line) {
-                    $dockerString .= $line . PHP_EOL;
+                if (is_file('/tmp/s3build-'.$this->startTime)) {
+                    $dockerString = file_get_contents('/tmp/s3build-'.$this->startTime);
                 }
 
                 if ($code !== 0){
@@ -292,17 +295,6 @@ class Build extends Command
                     array_push($cloudfrontDomains, array($domain));
                 }
             }
-            if($invalidationResult->get('@metadata')['statusCode'] == '201') {
-                $this->table(
-                    array('Cloudfront Output'),
-                    array(array('Cloudfront Invalidation Succesful'))
-                );
-            } else {
-                $this->table(
-                    array('Cloudfront Output'),
-                    array(array('Cloudfront Invalidation Unsuccesful' . PHP_EOL . 'Response Code: ' . $invalidationResult->get('@metadata')['statusCode']))
-                );
-            }
         }
 
         if ($this->option('no-build') !== true) { 
@@ -325,16 +317,5 @@ class Build extends Command
                 $cloudfrontDomains
             );
         }
-    }
-
-    /**
-     * Define the command's schedule.
-     *
-     * @param  \Illuminate\Console\Scheduling\Schedule $schedule
-     * @return void
-     */
-    public function schedule(Schedule $schedule)
-    {
-        // $schedule->command(static::class)->everyMinute();
     }
 }
